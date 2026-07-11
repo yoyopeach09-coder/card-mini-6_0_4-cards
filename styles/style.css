@@ -1,0 +1,9 @@
+/* ============================================================
+   style.css — stylesheet facade
+   Keep index.html stable while large CSS is split by responsibility.
+   Import order matches the original monolithic file.
+   ============================================================ */
+@import url('./base/base-layout.css');
+@import url('./vfx/core-battle-vfx.css');
+@import url('./ui/controls-stats-status.css');
+@import url('./vfx/combat-attack-vfx.css');

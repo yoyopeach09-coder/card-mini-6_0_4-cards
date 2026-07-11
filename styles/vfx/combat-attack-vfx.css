@@ -1,0 +1,98 @@
+/* Hero เป็น relative เพื่อรองรับ impact claw */
+.hero { position: relative; }
+
+/* ── Lift attacking slot above siblings ──────────────────── */
+/* ใช้ :has() ยก z-index ของ slot ที่กำลัง animate สูงกว่า sibling */
+.card-slot:has(.anim-loa-attack-up),
+.card-slot:has(.anim-loa-attack-down) {
+  z-index: 600 !important;
+}
+
+/* 1. The Leap & The Recoil — พุ่งปะทะ 175ms แล้วดีดกลับ */
+/* Motion blur ฝังใน keyframes: เร่งความเร็ว → blur สูง / ชน → คมชัด */
+@keyframes loaAttackUp {
+  0%   { transform: translateY(0)      scale(1);                  filter: blur(0px);                           }
+  18%  { transform: translateY(8px)    scale(1.04);               filter: blur(0.5px);                         }
+  40%  { transform: translateY(-95px)  scale(1.14) scaleY(1.08);  filter: url(#blur-y-heavy) brightness(1.15); } /* peak speed — blur แนวตั้งหนัก */
+  52%  { transform: translateY(-118px) scale(1.18);               filter: blur(0px) brightness(1.4);           } /* impact — คมชัด สว่าง */
+  75%  { transform: translateY(-20px)  scale(1.05);               filter: url(#blur-y-light);                  } /* ดีดกลับ — blur เบา */
+  100% { transform: translateY(0)      scale(1);                  filter: blur(0px);                           }
+}
+@keyframes loaAttackDown {
+  0%   { transform: translateY(0)      scale(1);                  filter: blur(0px);                           }
+  18%  { transform: translateY(-8px)   scale(1.04);               filter: blur(0.5px);                         }
+  40%  { transform: translateY(95px)   scale(1.14) scaleY(1.08);  filter: url(#blur-y-heavy) brightness(1.15); }
+  52%  { transform: translateY(118px)  scale(1.18);               filter: blur(0px) brightness(1.4);           }
+  75%  { transform: translateY(20px)   scale(1.05);               filter: url(#blur-y-light);                  }
+  100% { transform: translateY(0)      scale(1);                  filter: blur(0px);                           }
+}
+/* ระยะเวลา 350ms → impact point = 175ms พอดีตรงจังหวะ */
+.anim-loa-attack-up   { animation: loaAttackUp   calc(0.35s / var(--speed)) cubic-bezier(0.22, 0.9, 0.28, 1) both; z-index: 999 !important; position: relative; }
+.anim-loa-attack-down { animation: loaAttackDown calc(0.35s / var(--speed)) cubic-bezier(0.22, 0.9, 0.28, 1) both; z-index: 999 !important; position: relative; }
+
+/* ── The Impact — รอย slash ─────────────────────────────── */
+/* Flash แสงวาบตอนกระทบ — วางก่อน slash lines */
+.slash-impact-flash {
+  position: absolute;
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,180,60,0.6) 45%, transparent 75%);
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  z-index: 98;
+  animation: slashFlash calc(0.28s / var(--speed)) ease-out forwards;
+}
+@keyframes slashFlash {
+  0%   { transform: translate(-50%,-50%) scale(0); opacity: 1; }
+  35%  { transform: translate(-50%,-50%) scale(1.3); opacity: 0.9; }
+  100% { transform: translate(-50%,-50%) scale(2.0); opacity: 0; }
+}
+
+/* เส้นรอยฟัน — แต่ละเส้นมี data-angle ต่างกัน */
+.claw-slash {
+  position: absolute;
+  height: 4px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 100;
+  transform-origin: left center;
+  animation: slashFade calc(0.38s / var(--speed)) ease-out forwards;
+}
+/* เส้น 1: ยาว สีขาว-ส้ม */
+.claw-slash:nth-child(2) {
+  width: 72px;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, #fff 25%, #ffcc44 70%, rgba(255,100,0,0) 100%);
+  box-shadow: 0 0 8px 2px rgba(255,180,0,0.7), 0 0 18px 4px rgba(255,80,0,0.3);
+  height: 5px;
+}
+/* เส้น 2: กลาง สีขาว-แดง */
+.claw-slash:nth-child(3) {
+  width: 55px;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, #fff 30%, #ff5533 65%, rgba(255,0,0,0) 100%);
+  box-shadow: 0 0 6px 2px rgba(255,80,0,0.6), 0 0 14px 3px rgba(200,0,0,0.3);
+  height: 4px;
+}
+/* เส้น 3: สั้น สีขาว */
+.claw-slash:nth-child(4) {
+  width: 42px;
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, #fff 35%, rgba(255,200,100,0.8) 70%, transparent 100%);
+  box-shadow: 0 0 5px 1px rgba(255,200,50,0.5);
+  height: 3px;
+}
+@keyframes slashFade {
+  0%   { opacity: 0.95; transform: rotate(var(--slash-rot, -30deg)) scaleX(0.4); }
+  20%  { opacity: 1;    transform: rotate(var(--slash-rot, -30deg)) scaleX(1.1); }
+  100% { opacity: 0;    transform: rotate(var(--slash-rot, -30deg)) scaleX(1.5) translateX(12px); }
+}
+
+/* Hit Shake ตอนโดนตี */
+@keyframes hitShake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-6px) scale(1.03); }
+  45%  { transform: translateX(5px); }
+  70%  { transform: translateX(-3px); }
+  100% { transform: translateX(0); }
+}
+.hit-shake { animation: hitShake calc(0.22s / var(--speed)); }
+

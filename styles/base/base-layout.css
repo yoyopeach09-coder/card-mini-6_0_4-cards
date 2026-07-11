@@ -1,0 +1,241 @@
+body { margin: 0; background-color: #111; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+.battlefield { width: 900px; background: linear-gradient(to bottom, #1a1a2e, #16213e, #0f3460); border: 3px solid #d4af37; border-radius: 15px; padding: 20px; box-shadow: 0 0 30px rgba(212, 175, 55, 0.2); position: relative; }
+
+/* ฮีโร่ */
+.hero { text-align: center; padding: 10px; background: rgba(0, 0, 0, 0.5); border-radius: 8px; margin-bottom: 15px; border: 1px solid #444; }
+.hero h2 { margin: 0; font-size: 1.2rem; text-transform: uppercase;}
+.hero p { margin: 5px 0 0 0; font-weight: bold; font-size: 1.2rem;}
+.enemy-hero { color: #ff4c4c; border-color: #5c1a1a;}
+.player-hero { color: #4cff4c; margin-top: 15px; margin-bottom: 0; border-color: #1a5c2b;}
+
+/* ── Animated HP counter flash ── */
+@keyframes hpFlash {
+  0%   { color: #fff; transform: scale(1); }
+  40%  { color: #ff3b3b; transform: scale(1.25); }
+  100% { color: inherit; transform: scale(1); }
+}
+@keyframes hpHeal {
+  0%   { color: #fff; transform: scale(1); }
+  40%  { color: #33ff33; transform: scale(1.2); }
+  100% { color: inherit; transform: scale(1); }
+}
+.hp-hit  { animation: hpFlash 0.35s ease-out; }
+.hp-heal { animation: hpHeal  0.35s ease-out; }
+
+/* กระดานและช่องวางการ์ด */
+.board { display: flex; justify-content: center; gap: 15px; }
+.card-slot { width: 100px; height: 140px; background: rgba(255, 255, 255, 0.03); border: 2px dashed #555; border-radius: 8px; transition: 0.3s; display: flex; justify-content: center; align-items: center; position: relative; overflow: visible; /* Fix Bug #7: ป้องกัน popup card detail โดนตัดใน browser บางตัว */
+  /* PERF: contain layout/style per slot → browser ไม่ต้อง recalculate ทั้งหน้าเมื่อ card เปลี่ยน */
+  contain: layout style;
+}
+.player-board .card-slot { border-color: rgba(76, 255, 76, 0.3); }
+.enemy-board .card-slot { border-color: rgba(255, 76, 76, 0.3); }
+.divider { border: 0; height: 2px; background: linear-gradient(to right, transparent, #d4af37, transparent); margin: 20px 0; }
+.hand-zone { display: flex; justify-content: center; gap: 15px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #333; min-height: 150px; flex-wrap: wrap; /* Fix Bug #4: ป้องกันการ์ดล้นออกนอกกรอบเมื่อมีหลายใบ */ }
+
+/* สไตล์การ์ดเต็มใบ (เจ๊ลบ overflow: hidden ออกให้แล้ว ป๊อปอัปจะได้ทะลุกรอบได้!) */
+.card, .dead-card { 
+  width: 100px; 
+  height: 140px; 
+  position: relative; 
+  border-radius: 8px; 
+  border: 1px solid #333; 
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5); 
+  cursor: pointer; 
+  transition: transform 0.2s, box-shadow 0.2s; 
+  background: #222;
+  /* PERF: promote cards to own compositor layer — smooth hover + animation */
+  will-change: transform;
+}
+.card:hover { 
+  transform: translateY(-10px) scale(1.05); 
+  box-shadow: 0 0 15px rgba(212, 175, 55, 0.6); 
+  z-index: 50; /* อัปเกรด z-index ตอนชี้ให้พุ่งมาหน้าสุด ป๊อปอัปจะได้ไม่โดนไพ่อื่นบัง */
+}
+
+/* พื้นหลังรูปภาพ (ใส่ความโค้งมนตรงนี้แทน จะได้ไม่ทะลุกรอบ) */
+.card-image-bg { 
+  width: 100%; 
+  height: 100%; 
+  background-size: cover; 
+  background-position: center; 
+  position: absolute; 
+  top: 0; 
+  left: 0; 
+  opacity: 0.8; 
+  border-radius: 8px; /* เพิ่มขอบโค้งให้รูป */
+}
+
+/* แถบข้อมูลดำๆ ด้านล่าง */
+.card-data-overlay { 
+  position: absolute; 
+  bottom: 0; 
+  left: 0; 
+  width: 100%; 
+  padding: 8px; 
+  background-color: rgba(0, 0, 0, 0.7); 
+  color: #eee; 
+  box-sizing: border-box; 
+  text-align: center; 
+  border-bottom-left-radius: 8px; /* โค้งขอบล่างซ้าย */
+  border-bottom-right-radius: 8px; /* โค้งขอบล่างขวา */
+}
+
+/* เวลานับถอยหลัง */
+.wait-time { position: absolute; top: 3px; left: 3px; background-color: #333; color: #eee; border-radius: 4px; padding: 2px 5px; font-size: 0.7rem; z-index: 10; font-weight: bold; border: 1px solid #d4af37;}
+.wait-time.ready { background-color: #d4af37; color: #111; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+/* ปุ่มจบเทิร์น */
+.end-turn-btn { background: linear-gradient(to bottom, #8b0000, #4a0000); color: white; border: 2px solid #d4af37; padding: 10px 25px; font-size: 1.2rem; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); transition: 0.2s; }
+.end-turn-btn:hover:not(:disabled) { background: linear-gradient(to bottom, #a50000, #600000); transform: scale(1.05); }
+.end-turn-btn:active:not(:disabled) { transform: scale(0.95); }
+.end-turn-btn:disabled { filter: grayscale(100%); cursor: not-allowed; }
+
+/* สุสาน (z-index สูงสุด) */
+.graveyard-zone { position: absolute; right: 20px; bottom: 130px; background: rgba(20, 20, 30, 0.9); border: 2px solid #d4af37; padding: 12px 18px; border-radius: 10px; cursor: pointer; font-weight: bold; color: #d4af37; box-shadow: 0 0 15px rgba(0,0,0,0.7); z-index: 100; }
+.graveyard-zone:hover { background: #333; color: #fff; }
+.modal { display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.9); justify-content: center; align-items: center; }
+.modal-content { background: #111; border: 2px solid #d4af37; padding: 30px; width: 80%; max-width: 500px; border-radius: 15px; text-align: center; }
+.close { position: absolute; right: 20px; top: 10px; color: #aaa; font-size: 30px; font-weight: bold; cursor: pointer; }
+.close:hover { color: #fff; }
+.grave-list { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px; max-height: 350px; overflow-y: auto; }
+
+/* --- ระบบดาวและสกิล (Star & Skill System) --- */
+.card-stars {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font-size: 0.65rem;
+  color: #ffd700; /* สีทอง */
+  text-shadow: 1px 1px 2px #000;
+  z-index: 10;
+  letter-spacing: -1px; /* บีบดาวให้ชิดกันนิดนึง */
+}
+
+/* --- หน้าต่างซ่อนสกิล (Tooltip) โชว์ตอนกดค้าง/ชี้ค้าง --- */
+.skill-tooltip {
+  position: absolute;
+  bottom: 110%; /* ลอยเด้งขึ้นมาเหนือการ์ด */
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 10, 15, 0.95);
+  border: 1px solid #add8e6;
+  color: #add8e6;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.65rem;
+  white-space: nowrap;
+  pointer-events: none; /* ไม่ให้บังเมาส์เราตอนจะคลิกไพ่ */
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease 0.3s; /* หน่วงเวลา 0.3 วิ ให้ความรู้สึกเหมือนกดค้างถึงจะขึ้น */
+  z-index: 100;
+  box-shadow: 0 0 10px rgba(173, 216, 230, 0.3);
+  text-align: left;
+  line-height: 1.4;
+}
+
+/* โชว์ Tooltip เมื่อเมาส์ชี้แช่ (Hover) หรือ กดค้าง (Active) */
+.card:hover .skill-tooltip,
+.card:active .skill-tooltip {
+  opacity: 1;
+  visibility: visible;
+  bottom: 105%; /* เอฟเฟกต์เด้งลอยขึ้นมานิดนึง */
+}
+/* --- ตัวเลขบอกจำนวนกองการ์ด (Deck Counter) --- */
+.deck-counter {
+  color: #d4af37;
+  font-weight: bold;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 5px 0 10px 0;
+  text-shadow: 1px 1px 3px #000;
+  background: rgba(0, 0, 0, 0.5);
+  display: inline-block;
+  padding: 5px 15px;
+  border-radius: 20px;
+  border: 1px solid #555;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+}
+/* --- สไตล์หน้าต่างดูรายละเอียดการ์ด (Card Detail) --- */
+.card-detail-content {
+  max-width: 650px !important;
+  padding: 25px !important;
+  text-align: left !important;
+  background: linear-gradient(135deg, #1a1a2e, #111) !important;
+}
+
+.card-detail-layout {
+  display: flex;
+  gap: 25px;
+  align-items: flex-start;
+}
+
+@media (max-width: 600px) {
+  .card-detail-layout { flex-direction: column; align-items: center; }
+}
+
+.detail-card-image {
+  width: 220px;
+  height: 310px;
+  border-radius: 12px;
+  border: 3px solid #d4af37;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 0 25px rgba(0,0,0,0.8);
+  flex-shrink: 0;
+}
+
+.detail-info { flex-grow: 1; width: 100%; }
+.detail-info h2 { margin: 0 0 5px 0; color: #fff; font-size: 2rem; letter-spacing: 1px; }
+.detail-stars { color: #ffd700; font-size: 1.2rem; margin-bottom: 15px; letter-spacing: 2px; }
+.detail-stats span { font-size: 1.2rem; font-weight: bold; margin-right: 15px; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 8px; border: 1px solid #555; }
+#detail-card-atk { color: #4cff4c; }
+#detail-card-hp { color: #ff4c4c; }
+#detail-card-wait { color: #aaa; }
+
+.detail-skills-list {
+  max-height: 200px;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.detail-skill-item {
+  margin-bottom: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid #add8e6;
+}
+
+.detail-skill-title { font-weight: bold; color: #add8e6; font-size: 1.1rem; margin-bottom: 5px; }
+.detail-skill-desc { font-size: 0.9rem; color: #ccc; line-height: 1.5; }
+/* --- ออร่าการ์ดระดับ UR (Ultra Rare) --- */
+.card-ur {
+  border: 3px solid transparent !important;
+  background-image: linear-gradient(#222, #222), linear-gradient(to right, #ff00ff, #00ffff, #ff00ff) !important;
+  background-origin: border-box;
+  background-clip: content-box, border-box;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.6), inset 0 0 15px rgba(0, 255, 255, 0.4);
+  animation: urGlow 2s infinite alternate;
+}
+
+@keyframes urGlow {
+  0% { box-shadow: 0 0 20px rgba(255, 0, 255, 0.6), inset 0 0 10px rgba(0, 255, 255, 0.4); }
+  100% { box-shadow: 0 0 40px rgba(0, 255, 255, 0.8), inset 0 0 20px rgba(255, 0, 255, 0.6); }
+}
+
+.clone-card { filter: hue-rotate(180deg) opacity(80%) !important; border-color: #9932cc !important; }
+
+@keyframes floatTextAnim {
+  0%   { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(1.3); opacity: 1; }
+  100% { margin-top: -80px; transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+.dmg-text { color: #ff3333; } /* สีแดงสำหรับดาเมจ */
+.heal-text { color: #33ff33; } /* สีเขียวสำหรับฮีล */
+.skill-text { color: #ffcc00; font-size: 1.5rem; } /* สีทองสำหรับชื่อสกิลสถานะ */

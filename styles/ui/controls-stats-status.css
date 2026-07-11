@@ -1,0 +1,175 @@
+/* --- ย้ายปุ่มจบเทิร์นไปขวาล่าง (เหนือสุสาน) --- */
+#end-turn-btn {
+  position: fixed !important; /* บังคับให้ปุ่มลอยเป็นอิสระจากกรอบเดิม */
+  right: 190px !important;     /* ดันไปชิดขอบขวาจอ */
+  bottom: 100px !important;   /* ยกความสูงขึ้นมาให้อยู่เหนือปุ่มสุสาน */
+  margin: 0 !important;       /* ลบระยะห่างเดิมทิ้ง */
+  z-index: 9999 !important;   /* กันไม่ให้โดนไพ่หรือเอฟเฟกต์บัง */
+}
+/* ========== ระบบสถิติ (Combat Stats) ========== */
+.stats-toggle-btn {
+  position: fixed; right: 20px; top: 50px; background: rgba(15, 15, 20, 0.9);
+  color: #4cff4c; border: 1px solid #4cff4c; padding: 10px 15px; border-radius: 8px;
+  cursor: pointer; font-size: 0.85rem; font-weight: bold; z-index: 99999;
+  box-shadow: 0 0 15px rgba(76, 255, 76, 0.3); transition: 0.3s;
+}
+.stats-toggle-btn:hover { background: #4cff4c; color: #000; box-shadow: 0 0 20px rgba(76, 255, 76, 0.8); }
+.stats-container {
+  position: fixed; right: 20px; top: 70px; width: 340px; max-height: 60vh;
+  background: rgba(10, 10, 15, 0.95); border: 2px solid #d4af37; border-radius: 10px;
+  z-index: 99998; display: none; flex-direction: column; box-shadow: 0 0 30px rgba(0,0,0,0.9);
+}
+.stats-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 15px; border-bottom: 1px solid #444; background: rgba(0,0,0,0.8);
+  color: #d4af37; font-weight: bold; font-size: 0.9rem; border-radius: 8px 8px 0 0;
+}
+.stats-content { flex-grow: 1; overflow-y: auto; padding: 15px; }
+.stat-card-row { margin-bottom: 15px; font-size: 0.75rem; font-family: sans-serif; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 5px; }
+.stat-name { font-weight: bold; margin-bottom: 5px; font-size: 0.8rem; }
+.stat-bar-bg { width: 100%; background: #222; border-radius: 4px; margin-bottom: 4px; overflow: hidden; position: relative; height: 14px; }
+.stat-bar-fill { height: 100%; position: absolute; left: 0; top: 0; display: flex; align-items: center; padding-left: 5px; color: #000; font-weight: bold; font-size: 0.65rem; white-space: nowrap; transition: width 0.5s ease-out; }
+.fill-dmg { background: linear-gradient(90deg, #ff3333, #ff6666); }
+.fill-tank { background: linear-gradient(90deg, #888888, #bbbbbb); }
+.fill-heal { background: linear-gradient(90deg, #33ff33, #88ff88); }
+.fill-buff-atk { background: linear-gradient(90deg, #1e90ff, #7cc7ff); color:#001a33; }
+.fill-buff-hp { background: linear-gradient(90deg, #00bcd4, #8eefff); color:#002a33; }
+.fill-kill { background: linear-gradient(90deg, #ffd700, #fff08a); color:#2b2100; }
+.fill-loss { background: linear-gradient(90deg, #7a1f7a, #cc66cc); }
+.fill-block { background: linear-gradient(90deg, #b8f7ff, #ffffff); color:#102020; }
+/* ── HP bar smooth width transition ────────────────────────
+   ทำให้ HP bar ค่อยๆ หายออกอย่าง smooth                     */
+.hp-bar-fill {
+  transition: width .45s ease-out, background-color .3s;
+}
+
+/* ── Turn Counter (injected via JS) ────────────────────────
+   Fixed top-center display                                    */
+#turn-counter {
+  font-family: 'Segoe UI', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ── End Screen button hover ───────────────────────────────
+   (JS sets inline styles, this reinforces transitions)       */
+
+/* ── Card HP bar container (board only) ────────────────────
+   เส้น HP bar ด้านล่าง overlay ของการ์ดในสนาม              */
+.hp-bar-wrap {
+  width: 100%;
+  height: 4px;
+  background: #1a1a1a;
+  border-radius: 2px;
+  margin-top: 3px;
+  overflow: hidden;
+}
+.hp-bar-fill-el {
+  height: 100%;
+  border-radius: 2px;
+  transition: width .4s ease, background .3s;
+}
+
+/* ── Improved card hover on board ──────────────────────────
+   การ์ดในสนามตอนชี้เมาส์                                    */
+.player-board .card-slot:hover,
+.enemy-board  .card-slot:hover {
+  border-color: rgba(212, 175, 55, .6) !important;
+  transition: border-color .2s;
+}
+
+/* ── Log section divider per turn ──────────────────────────
+   เส้นแบ่ง turn ใน battle log                               */
+.log-entry:has(.log-player):first-of-type {
+  border-top: 1px solid #333;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
+/* ── Stats bar micro-animation ─────────────────────────────
+   stat bars ขยายตัวเมื่อแสดง                                */
+.stat-bar-fill {
+  animation: statBarGrow .6s ease-out backwards;
+}
+@keyframes statBarGrow {
+  from { width: 0 !important; opacity: 0; }
+}
+/* ✅ เพิ่มสีเหลือง/ทอง สำหรับสกิลดูดเลือดโดยเฉพาะ */
+.drain-text { color: #ffd700; font-weight: bold; }
+
+/* =========================================
+   ⚔️ LOA CLASSIC ATTACK ANIMATION ⚔️
+ ========================================= */
+
+/* Enemy hand zone scale and padding */
+.enemy-hand-zone {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  border-top: none !important;
+  border-bottom: 2px solid #333 !important;
+  padding-bottom: 20px !important;
+  margin-bottom: 20px !important;
+  transform: scale(0.8);
+}
+
+/* Centered game controls container */
+.game-controls {
+  text-align: center;
+  margin-top: 20px;
+  padding-bottom: 20px;
+}
+
+/* Speed control buttons */
+.speed-control-btn {
+  padding: 5px 15px;
+  cursor: pointer;
+  background: #444;
+  color: white;
+  border: 1px solid #777;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+/* Modal styling overrides */
+.modal-header-grave {
+  color: #d4af37;
+}
+.modal-divider {
+  border-color: #444;
+  border-style: solid;
+}
+.modal-divider-margin {
+  border-color: #444;
+  border-style: solid;
+  margin: 15px 0;
+}
+.modal-play-btn {
+  display: none;
+  width: 100%;
+  margin-top: 20px;
+}
+.log-header-title {
+  color: #d4af37;
+  font-weight: bold;
+}
+
+/* Auto play button class */
+.auto-play-btn {
+  background: #111;
+  color: #d4af37;
+  border: 2px solid #d4af37;
+  padding: 10px 25px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  transition: 0.2s;
+  margin-left: 10px;
+}
+.auto-play-btn:hover {
+  background: #222;
+}
+.auto-play-btn.active {
+  border-color: #4cff4c !important;
+  box-shadow: 0 0 10px rgba(76, 255, 76, 0.5) !important;
+}
