@@ -14,6 +14,7 @@ import { buildDeck } from './data/deck.js';
 import { endTurn } from './game/turn-control.js';
 import { createAutoBtn, updateAutoBtn, resetAutoPlay, setAutoPlay } from './game/auto-play.js';
 import { setupVFXHandlers } from './vfx/vfx-handlers.js';
+import { setupEffectHandlers } from './core/effect-handlers.js';
 
 // ── initGame ──────────────────────────────────────────────────
 export async function initGame() {
@@ -44,6 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Register VFX event handlers (once, at boot) ─────────────
   setupVFXHandlers();
+
+  // ── Register Effect Queue handlers (once, at boot) ──────────
+  // ผูก FX.DAMAGE/HERO_DAMAGE/HEAL/BUFF → ฟังก์ชัน apply จริงใน
+  // game/combat.js · game/game-actions.js (ดู core/effect-handlers.js)
+  setupEffectHandlers();
 
   // ── Speed controls ──────────────────────────────────────────
   const btnX05 = $('speed-x05'), btnX1 = $('speed-x1'), btnX2 = $('speed-x2');

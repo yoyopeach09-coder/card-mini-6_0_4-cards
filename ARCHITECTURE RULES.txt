@@ -1,0 +1,53 @@
+ARCHITECTURE RULES — SOLO AUTO-BATTLE 1v1 LITE
+เวอร์ชันใช้งานจริงสำหรับเกมการ์ดออโต้แบทเทิลโร้คไลต์ 1-1 / เล่นออฟไลน์คนเดียว
+เป้าหมาย: เพิ่มการ์ด ~100 ใบ + สกิล ~300 สกิลได้ โดยยังลื่น ไม่มั่ว ไม่แลค ไม่พังง่าย
+
+============================================================
+0) คำจำกัดความสั้น ๆ
+============================================================
+เกมนี้ไม่ใช่ MMO, ไม่ใช่ live-service, ไม่ใช่ competitive multiplayer
+ดังนั้นไม่ต้องแบกกฎหนักเรื่อง server authority, network reconciliation, operator workflow, hot migration เต็มระบบ
+
+แต่ยังต้องเข้มกับ 4 เรื่องนี้:
+1. Logic เกมต้องแยกจาก UI
+2. State ต้องอ่านง่าย/เซฟได้/รีเพลย์ได้พอสมควร
+3. Skill ต้องเพิ่มได้เยอะโดยไม่ hardcode มั่ว
+4. Animation/VFX ต้องไม่เป็นตัวตัดสินผลเกม
+
+============================================================
+A) กฎเหล็กที่ควรเก็บไว้
+============================================================
+
+1. Engine เป็นคนตัดสินผลเกม
+UI มีหน้าที่แสดงผลเท่านั้น
+ห้ามให้ animation, DOM, CSS, setTimeout หรือปุ่ม UI เป็นคนเปลี่ยนผล combat โดยตรง
+
+2. 1 Run / 1 Battle = 1 State Object
+ข้อมูลของ battle ต้องอยู่ใน state เดียวที่ชัดเจน
+หลีกเลี่ยง global runtime มั่ว ๆ เช่น currentAttacker, tempDamage, activeSkill ที่ลอยอยู่นอก state แล้วเดายาก
+
+3. State ต้องเป็น plain data
+ใน battle state ห้ามเก็บ DOM node, function, class instance หนัก ๆ, timer handle, audio object, animation object
+เก็บแค่ตัวเลข string boolean array object ธรรมดา
+
+4. Skill ห้ามแตะ UI โดยตรง
+Skill ทำได้แค่ “คืน effect/action” เช่น damage, heal, shield, draw, buff, debuff, summon, addStatus
+จากนั้น Engine resolve แล้วปล่อย event ให้ UI เอาไปเล่นภาพเอง
+
+5. Animation ตามหลัง Logic เสมอ
+Engine คำนวณจบก่อน
+UI ค่อยอ่าน event แล้วเล่นอนิเมชั่นตามลำดับ
+ถ้า animation พัง เกมยังต้องรู้ผลถูกอยู่
+
+6. RNG ต้องผ่านตัวกลางเดียว
+ห้ามใช้ Math.random() กระจายทั่วไฟล์
+มี rng.next(), rng.pick(), rng.shuffle() ที่รับ seed ได้
+
+7. Resolution Order ต้องตายตัว
+ถ้าหลายสกิลทำงานพร้อมกัน ให้เรียงด้วย priority แล้วตามด้วย stable id
+เช่น priority น้อยไปมาก หรือมากไปน้อย ต้องเลือกทางเดียวแล้วล็อกไว้
+
+8. ต้องมี Event Queue กลาง
+Engine ไม่ควร resolve สกิลแบบเรียกซ้อนลึกมั่ว ๆ
+ให้ push effect/event เข้า queue แล้ว resolve ทีละตัว
+อ่านง่าย กัน loop และกัน stack ระเบิด

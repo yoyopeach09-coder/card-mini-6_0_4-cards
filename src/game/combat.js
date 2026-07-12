@@ -14,6 +14,7 @@ import { sleep } from '../core/config.js';
 import { gs, getMyBoard, markDirty, addCombatStat } from '../core/state.js';
 import { emit, EV } from '../core/events.js';
 import { checkGameOver } from './win-check.js';
+import { queueEffect, resolveEffectQueue, FX, PRIORITY } from '../core/queue.js';
 
 const LOA_IMPACT_MS = 175;
 const LOA_RECOIL_MS = 175;
@@ -22,6 +23,13 @@ const LOA_RECOIL_MS = 175;
 // Rule pipeline กลางสำหรับ card damage: clamp + ลบ HP ตรงๆ
 // หมายเหตุ (Phase 3.4): `loc` คือ location descriptor { isPlayer, idx, target }
 // แทนที่ DOM element ตรง ๆ — vfx-handlers.js เป็นคน resolve เป็น el เอง
+//
+// หมายเหตุ (Phase E1 — Effect Queue): ฟังก์ชันนี้ยังคงเป็น "ตัว apply จริง"
+// เหมือนเดิมทุกอย่าง แต่ตอนนี้ถูกเรียกผ่าน FX.DAMAGE handler (ผูกไว้ใน
+// core/effect-handlers.js) แทนที่ executeAttack() ด้านล่างจะเรียกตรง ๆ —
+// เพื่อให้ effect หลายตัว (รวมสกิลในอนาคต) resolve เรียงตาม priority/id
+// ผ่าน resolveEffectQueue() จุดเดียว ไม่ใช่ตามลำดับที่โค้ดเรียกสุ่ม ๆ
+// ยัง export ตรงนี้ไว้เผื่อ caller อื่นอยากเรียกใช้ตรง ๆ ได้ (เช่น debug)
 export function applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType = 'normal', attackerCard = null) {
   if (!target || isNaN(rawDmg)) return 0;
   const dmg = Math.max(0, Math.floor(rawDmg));
@@ -81,14 +89,20 @@ export async function executeAttack(attacker, defender, idx, isPlayer) {
 
     emit(EV.IMPACT, loc);
     emit(EV.LOG, `⚔️ ${aName} → ${dName} (<span class="log-dmg">${dmg}</span>)`);
-    applyDamage(defender, dmg, loc, !isPlayer, 'normal', attacker);
+    // Phase E1: push เข้า effect queue แทนเรียก applyDamage() ตรง ๆ —
+    // ถ้าอนาคตมีสกิลอื่น queueEffect() เพิ่มเข้ามาพร้อมกัน (เช่น thorns
+    // สวนกลับ, on-hit trigger) ทุกอย่างจะ resolve เรียงตาม priority/id
+    // เดียวกันตรงนี้ ไม่ใช่ต่างคนต่างเรียกฟังก์ชันซ้อนกันเอง
+    queueEffect(FX.DAMAGE, { target: defender, rawDmg: dmg, loc, isTargetPlayer: !isPlayer, sourceType: 'normal', attackerCard: attacker }, PRIORITY.NORMAL);
+    await resolveEffectQueue();
 
   } else {
     // No defender — hit hero directly
     const loc = { isPlayer: !isPlayer, target: 'hero' };
     emit(EV.IMPACT, loc);
     const dmg = attacker.atk;
-    applyHeroDamage(!isPlayer, dmg, loc, attacker);
+    queueEffect(FX.HERO_DAMAGE, { isTargetPlayer: !isPlayer, rawDmg: dmg, loc, attackerCard: attacker }, PRIORITY.NORMAL);
+    await resolveEffectQueue();
     emit(EV.LOG, `⚔️ ${aName} → ฮีโร่ (<span class="log-dmg">${dmg}</span>)`);
   }
 

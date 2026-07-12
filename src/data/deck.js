@@ -5,6 +5,7 @@
 import { cloneCard, OWNER } from '../core/config.js';
 import { gs, ensureCombatStats, ensureUiRuntime } from '../core/state.js';
 import { cardDB } from './cards.js';
+import { rng } from '../core/rng.js';
 
 // ── getCombatStateDefaults ────────────────────────────────────
 // Single source of truth สำหรับ combat state fields ทั้งหมด
@@ -61,7 +62,9 @@ export function buildDeck(isPlayer) {
   const target = 10;
 
   while (d.length < target) {
-    const c = cardDB[Math.floor(Math.random() * cardDB.length)];
+    // Phase D1: เดิมใช้ Math.random() ตรง ๆ — ผิดกฎข้อ 6 (RNG ต้องผ่าน
+    // ตัวกลางเดียว) ย้ายมาใช้ rng.pick() แทน เพื่อให้ seed ได้ในอนาคต
+    const c = rng.pick(cardDB);
     counts[c.id] = counts[c.id] || 0;
     if (c.stars === 6 && counts[c.id] >= 1) continue;
     if (c.stars === 5 && counts[c.id] >= 2) continue;
