@@ -23,7 +23,7 @@ import { showFloat, shatterCard } from './vfx.js';
 import {
   flushBoard, updateHeroHP, updateGrave,
   renderHand, renderEnemyHand, updateDeckCount,
-  renderStatsUI,
+  renderStatsUI, openDetail,
 } from '../ui/ui.js';
 import { addLog } from '../ui/panels/log-panel.js';
 import { sd, OWNER } from '../core/config.js';
@@ -57,6 +57,12 @@ export function setupVFXHandlers() {
   on(EV.LOG,         (msg) => addLog(msg));
   on(EV.LOCK_TURN,   () => { if (dom.endTurnBtn) dom.endTurnBtn.disabled = true; });
   on(EV.UNLOCK_TURN, () => { if (dom.endTurnBtn) dom.endTurnBtn.disabled = false; });
+
+  // การ์ดในมือ/บนบอร์ดถูกคลิก → เปิด detail modal (เดิมใช้ dynamic
+  // import() ตรงใน onclick ของ board-renderer.js/hand-renderer.js เพื่อ
+  // เลี่ยง circular dependency — ย้ายมา emit() แล้ว subscribe รวมศูนย์ที่นี่
+  // เหมือน UI-sync event อื่นทั้งหมดแทน)
+  on(EV.OPEN_DETAIL, ({ card, src, idx }) => openDetail(card, src, idx));
 
   // Phase A1: game-over — game/win-check.js เป็นคนตัดสิน ที่นี่แค่จัดการ
   // presentation (log/alert/stats panel) เดิมเคยฝังอยู่ใน hero-hp.js

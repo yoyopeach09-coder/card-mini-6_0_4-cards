@@ -25,6 +25,8 @@ export const gs = {
   enemyGraveyard:  [],
   boardDirty:      false,
   turnLocked:      false,   // single source of truth แทนการอ่าน dom.endTurnBtn.disabled (ดู Phase 3.3)
+  rngSeed:         0,       // seed ของ run ปัจจุบัน (ตั้งค่าจริงใน initGame() ผ่าน rng.seed())
+                             // เก็บไว้ที่นี่เพื่อให้ log/save เห็น seed แล้วรีเพลย์ run เดิมซ้ำได้
 };
 
 // ── dom — DOM references (assigned in main.js DOMContentLoaded) ─
@@ -72,6 +74,7 @@ export function resetGameState() {
   gs.enemyGraveyard  = [];
   gs.boardDirty      = false;
   gs.turnLocked      = false;
+  gs.rngSeed         = 0;   // seed จริงจะถูกตั้งใน initGame() (หลัง resetGameState()) ผ่าน rng.seed()
 }
 
 

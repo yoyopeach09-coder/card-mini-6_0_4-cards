@@ -10,7 +10,7 @@
 //  ไม่ต้องแก้ queue.js หรือจุด queueEffect() ที่เรียกใช้เลย
 // ============================================================
 import { onEffect, FX } from './queue.js';
-import { applyDamage, applyHeroDamage } from '../game/combat.js';
+import { _applyDamageInternal, _applyHeroDamageInternal } from '../game/combat.js';
 import { applyCardHeal, applyCardBuff } from '../game/game-actions.js';
 
 export function setupEffectHandlers() {
@@ -18,10 +18,10 @@ export function setupEffectHandlers() {
   // handler แค่ destructure แล้วส่งต่อ ไม่มี logic ใหม่ตรงนี้ (ของเดิม
   // ยังอยู่ที่ combat.js/game-actions.js เหมือนเดิมทุกอย่าง)
   onEffect(FX.DAMAGE, ({ target, rawDmg, loc, isTargetPlayer, sourceType, attackerCard, floatDelayMs }) =>
-    applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType, attackerCard, floatDelayMs));
+    _applyDamageInternal(target, rawDmg, loc, isTargetPlayer, sourceType, attackerCard, floatDelayMs));
 
   onEffect(FX.HERO_DAMAGE, ({ isTargetPlayer, rawDmg, loc, attackerCard, floatDelayMs }) =>
-    applyHeroDamage(isTargetPlayer, rawDmg, loc, attackerCard, floatDelayMs));
+    _applyHeroDamageInternal(isTargetPlayer, rawDmg, loc, attackerCard, floatDelayMs));
 
   onEffect(FX.HEAL, ({ card, amount, sourceCard, opts }) =>
     applyCardHeal(card, amount, sourceCard, opts));

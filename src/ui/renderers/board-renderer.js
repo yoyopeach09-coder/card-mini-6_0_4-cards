@@ -3,6 +3,7 @@
 // ============================================================
 import { BOARD_SIZE } from '../../core/config.js';
 import { gs, dom, ensureUiRuntime } from '../../core/state.js';
+import { emit, EV } from '../../core/events.js';
 import { animateHP } from '../panels/hero-hp.js';
 import {
   applyStatColors, cardRenderSig, createCardHTML,
@@ -67,7 +68,7 @@ export function realRenderBoard() {
         el.className = 'card';
         el.style.cssText = `width:100%;height:100%;margin:0;border:2px solid ${borderColor};`;
         el.innerHTML = createCardHTML(card, 'board');
-        el.onclick = () => import('../modals/detail-modal.js').then(({ openDetail }) => openDetail(card, ownerKey + 'Board', i));
+        el.onclick = () => emit(EV.OPEN_DETAIL, { card, src: ownerKey + 'Board', idx: i });
         s.appendChild(el);
       } else {
         patchBoardSlot(s, card);

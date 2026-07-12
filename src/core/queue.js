@@ -21,7 +21,7 @@
 //       loop กลางจะดึงมาต่อเองโดยไม่ต้องเรียกซ้อนฟังก์ชัน)
 //
 //  handler แต่ละตัว: (payload, effect) => any — return ค่าอะไรก็ได้
-//  (ปกติคือ "amount ที่ apply ได้จริง" ตาม pattern เดิมของ applyDamage
+//  (ปกติคือ "amount ที่ apply ได้จริง" ตาม pattern เดิมของ _applyDamageInternal
 //  ฯลฯ) resolveEffectQueue() จะรวบผลลัพธ์ทั้งหมดเป็น array คืนกลับ
 // ============================================================
 
@@ -55,6 +55,8 @@ export const PRIORITY = Object.freeze({
 const _handlers = new Map();   // type → handler fn
 let _queue = [];               // effect ที่ยังไม่ resolve
 let _idCounter = 0;            // stable id ตัวนับขึ้นเรื่อย ๆ ไม่รีเซ็ตระหว่าง run
+let _resolving = false;        // true = มี drain loop ทำงานอยู่แล้ว
+let _drainPromise = null;      // promise ของ loop ที่กำลังทำงานอยู่ตอนนี้
 
 // ── onEffect / offEffect ─────────────────────────────────────
 // register/unregister handler สำหรับ effect type หนึ่ง ๆ (1 type = 1 handler
@@ -85,24 +87,51 @@ export function queueEffect(type, payload = {}, priority = PRIORITY.NORMAL) {
 // handler ที่กำลัง resolve สามารถ queueEffect() เพิ่มระหว่างทางได้
 // (เช่น on-hit trigger สกิลอื่นต่อ) — loop นี้จะดึงมาต่อให้เอง
 export async function resolveEffectQueue() {
-  const results = [];
-  while (_queue.length) {
-    _queue.sort((a, b) => (a.priority - b.priority) || (a.id - b.id));
-    const effect = _queue.shift();
-    const handler = _handlers.get(effect.type);
-    if (!handler) {
-      console.warn(`[EffectQueue] ไม่มี handler สำหรับ "${effect.type}" — ข้าม effect นี้`, effect);
-      continue;
+  // มี loop กำลัง drain อยู่แล้ว (caller อื่นเรียกซ้อนเข้ามา) —
+  // ห้ามเปิด while loop ที่สองมาแย่ง _queue.shift() กัน แค่รอ loop เดิม
+  // ให้จบ (loop เดิมเช็ค _queue.length ทุกรอบอยู่แล้ว effect ที่เพิ่งถูก
+  // queueEffect() เข้ามาตอนนี้จะโดนดึงไปโดย loop เดิมเองแบบไม่ต้องทำอะไรเพิ่ม)
+  if (_resolving) return _drainPromise;
+
+  _resolving = true;
+  _drainPromise = (async () => {
+    const results = [];
+    while (_queue.length) {
+      _queue.sort((a, b) => (a.priority - b.priority) || (a.id - b.id));
+      const effect = _queue.shift();
+      const handler = _handlers.get(effect.type);
+      if (!handler) {
+        console.warn(`[EffectQueue] ไม่มี handler สำหรับ "${effect.type}" — ข้าม effect นี้`, effect);
+        continue;
+      }
+      try {
+        results.push(await handler(effect.payload, effect));
+      } catch (e) {
+        console.error(`[EffectQueue] handler พังตอน resolve "${effect.type}":`, e);
+      }
     }
-    try {
-      results.push(await handler(effect.payload, effect));
-    } catch (e) {
-      console.error(`[EffectQueue] handler พังตอน resolve "${effect.type}":`, e);
-    }
+    return results;
+  })();
+
+  try {
+    return await _drainPromise;
+  } finally {
+    _resolving = false;
+    _drainPromise = null;
   }
-  return results;
 }
 
 // ── utils ────────────────────────────────────────────────────
 export function clearEffectQueue() { _queue = []; }
 export function queueLength() { return _queue.length; }
+
+// isResolving() / getQueueSnapshot() — เตรียมไว้สำหรับ save/load หรือ
+// debug tooling ในอนาคต (โปรเจกต์นี้ยังไม่มีระบบ save/load จริง) เพื่อ
+// เช็คได้ว่า "ตอนนี้มี effect ค้างกลาง resolve อยู่ไหม" โดยไม่ต้องย้าย
+// _queue/_idCounter เข้าไปเป็นส่วนหนึ่งของ gs จริง ๆ — ตอนนี้ปลอดภัยเพราะ
+// ทุก caller await resolveEffectQueue() จนคิวว่างก่อนคืน control เสมอ
+// (ดู combat.js) ถ้าวันไหนมี flow ที่ปล่อยคิวค้างข้าม async boundary
+// จริง (เช่น "รอ input ผู้เล่นเลือกเป้า" กลางคัน) ให้กลับมาคิดเรื่องย้าย
+// เข้า gs ให้จริงจังอีกที ตอนนั้นน่าจะมี spec ของ save format ชัดเจนกว่านี้
+export function isResolving() { return _resolving; }
+export function getQueueSnapshot() { return _queue.map(e => ({ ...e })); }

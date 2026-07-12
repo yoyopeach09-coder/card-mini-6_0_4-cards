@@ -1,5 +1,5 @@
 // ============================================================
-//  combat.js — applyDamage · executeAttack
+//  combat.js — _applyDamageInternal · executeAttack
 //  ขึ้นกับ: config.js · state.js · events.js
 //
 //  ห้าม import จาก ui/* หรือ vfx/* และห้ามแตะ dom.* เลย (Phase 3.4)
@@ -16,7 +16,7 @@ import { emit, EV } from '../core/events.js';
 import { checkGameOver } from './win-check.js';
 import { queueEffect, resolveEffectQueue, FX, PRIORITY } from '../core/queue.js';
 
-// ── applyDamage ───────────────────────────────────────────────
+// ── _applyDamageInternal ─────────────────────────────────────
 // Rule pipeline กลางสำหรับ card damage: clamp + ลบ HP ตรงๆ
 // หมายเหตุ (Phase 3.4): `loc` คือ location descriptor { isPlayer, idx, target }
 // แทนที่ DOM element ตรง ๆ — vfx-handlers.js เป็นคน resolve เป็น el เอง
@@ -26,13 +26,15 @@ import { queueEffect, resolveEffectQueue, FX, PRIORITY } from '../core/queue.js'
 // core/effect-handlers.js) แทนที่ executeAttack() ด้านล่างจะเรียกตรง ๆ —
 // เพื่อให้ effect หลายตัว (รวมสกิลในอนาคต) resolve เรียงตาม priority/id
 // ผ่าน resolveEffectQueue() จุดเดียว ไม่ใช่ตามลำดับที่โค้ดเรียกสุ่ม ๆ
-// ยัง export ตรงนี้ไว้เผื่อ caller อื่นอยากเรียกใช้ตรง ๆ ได้ (เช่น debug)
-// หมายเหตุ (Phase F2): เพิ่ม floatDelayMs (ตัวเลขจังหวะภาพ ms เฉย ๆ, default 0
-// = แสดงทันทีเหมือนเดิมสำหรับ caller อื่นที่ไม่ส่งมา) — ส่งต่อเข้า EV.FLOAT
-// ตรง ๆ ผ่าน delayMS ที่ handler รองรับอยู่แล้ว (ดู vfx-handlers.js) เพื่อให้
-// เลขดาเมจโผล่ตรงจังหวะดาบสับถึงเป้าได้ โดยที่ฟังก์ชันนี้เอง "ไม่ sleep() รอ"
-// ผลตัดสิน (target.hp -= effective) ยังคง apply ทันทีเหมือนเดิมทุกอย่าง
-export function applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType = 'normal', attackerCard = null, floatDelayMs = 0) {
+//
+// ⚠️ ห้ามเรียกตรงจาก game logic/สกิลใหม่เด็ดขาด — ชื่อขึ้นต้น _ เป็น
+// สัญญาณ "internal — ห้าม import ตรง" (ยัง export เพราะ effect-handlers.js
+// ต้อง import มาผูกกับ FX.DAMAGE เป็นจุดเดียวที่อนุญาต) ก่อนหน้านี้ใช้ชื่อ
+// applyDamage แบบไม่มีสัญญาณเตือน ทำให้เป็นช่องให้ game logic ใหม่เผลอ
+// import ตรงได้ง่าย ๆ โดยไม่มี error ใด ๆ เตือน ซึ่งจะข้าม priority/queue
+// ทำให้ resolution order ตายตัว (Rule 7-8) พังแบบเงียบ ๆ — ถ้าต้องการ
+// apply damage จาก game logic ให้ queueEffect(FX.DAMAGE, ...) เท่านั้น
+export function _applyDamageInternal(target, rawDmg, loc, isTargetPlayer, sourceType = 'normal', attackerCard = null, floatDelayMs = 0) {
   if (!target || isNaN(rawDmg)) return 0;
   const dmg = Math.max(0, Math.floor(rawDmg));
 
@@ -55,7 +57,9 @@ export function applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType = 'n
   return effective;
 }
 
-export function applyHeroDamage(isTargetPlayer, rawDmg, loc, attackerCard = null, floatDelayMs = 0) {
+// ⚠️ ห้ามเรียกตรงจาก game logic/สกิลใหม่เด็ดขาด — เหตุผลเดียวกับ
+// _applyDamageInternal ด้านบน ใช้ queueEffect(FX.HERO_DAMAGE, ...) แทน
+export function _applyHeroDamageInternal(isTargetPlayer, rawDmg, loc, attackerCard = null, floatDelayMs = 0) {
   const dmg = Math.max(0, Math.floor(rawDmg || 0));
   if (!dmg) return 0;
   if (isTargetPlayer) gs.playerHP = Math.max(0, gs.playerHP - dmg);
@@ -99,7 +103,7 @@ export async function executeAttack(attacker, defender, idx, isPlayer) {
 
     emit(EV.IMPACT, { ...loc, delayMS: ATTACK_ANIM_MS.IMPACT });
     emit(EV.LOG, `⚔️ ${aName} → ${dName} (<span class="log-dmg">${dmg}</span>)`);
-    // Phase E1: push เข้า effect queue แทนเรียก applyDamage() ตรง ๆ —
+    // Phase E1: push เข้า effect queue แทนเรียก _applyDamageInternal() ตรง ๆ —
     // ถ้าอนาคตมีสกิลอื่น queueEffect() เพิ่มเข้ามาพร้อมกัน (เช่น thorns
     // สวนกลับ, on-hit trigger) ทุกอย่างจะ resolve เรียงตาม priority/id
     // เดียวกันตรงนี้ ไม่ใช่ต่างคนต่างเรียกฟังก์ชันซ้อนกันเอง
@@ -119,3 +123,4 @@ export async function executeAttack(attacker, defender, idx, isPlayer) {
   emit(EV.UPDATE_HERO_HP);
   emit(EV.CARD_UNSWING, { isPlayer, idx, animClass: anim, delayMS: ATTACK_ANIM_MS.IMPACT + ATTACK_ANIM_MS.RECOIL });
 }
+

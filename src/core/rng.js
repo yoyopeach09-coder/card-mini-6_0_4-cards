@@ -33,6 +33,23 @@ export function seed(n) {
   _state = (n >>> 0) || 1;
 }
 
+// ── getState / restoreState ─────────────────────────────────────
+// (เตรียมไว้สำหรับ save/load ในอนาคต — ตอนนี้โปรเจกต์ยังไม่มีระบบ save/
+// load จริง จึงยังไม่ย้าย _state เข้า gs ตอนนี้ เพราะยังไม่มี spec ของ
+// save format ให้ออกแบบตาม แค่ initGame() เก็บ seed เริ่มต้นไว้ที่
+// gs.rngSeed ก็เพียงพอสำหรับ "รีเพลย์ทั้ง run ตั้งแต่ต้น" แล้ว)
+// สองฟังก์ชันนี้ให้ไว้เผื่อกรณีต้อง snapshot "กลางรัน" (mid-turn save) —
+// getState() คืนค่า _state ปัจจุบันตรง ๆ (ไม่ใช่ seed ตั้งต้น) ส่วน
+// restoreState() เซ็ต _state กลับแบบไม่ผ่าน seed() (seed() กัน 0 ไว้
+// เป็น 1 ซึ่งจะไม่ตรงกับ state จริงที่ snapshot มา)
+export function getState() {
+  return _state;
+}
+
+export function restoreState(s) {
+  _state = s >>> 0;
+}
+
 // ── next ─────────────────────────────────────────────────────
 // สุ่ม float [0, 1) แทน Math.random()
 export function next() {
@@ -69,5 +86,5 @@ export function shuffle(arr) {
   return a;
 }
 
-export const rng = { seed, next, int, chance, pick, shuffle };
+export const rng = { seed, next, int, chance, pick, shuffle, getState, restoreState };
 export default rng;

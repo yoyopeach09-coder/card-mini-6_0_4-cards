@@ -2,6 +2,7 @@
 //  hand-renderer.js — player/enemy hand rendering
 // ============================================================
 import { gs, dom } from '../../core/state.js';
+import { emit, EV } from '../../core/events.js';
 import { createCardHTML } from './card-view.js';
 
 // ── _renderHandInto — shared renderer สำหรับมือผู้เล่น/ศัตรู ──────
@@ -14,7 +15,7 @@ function _renderHandInto(zone, list, ctx) {
     const el = document.createElement('div'); el.className = 'card';
     if (ctx === 'enemyHand') el.style.margin = '0 -10px';
     el.innerHTML = createCardHTML(c, ctx);
-    el.onclick = () => import('../modals/detail-modal.js').then(({ openDetail }) => openDetail(c, ctx, i));
+    el.onclick = () => emit(EV.OPEN_DETAIL, { card: c, src: ctx, idx: i });
     if (ctx === 'playerHand' && c.waitTime > 0) el.style.opacity = '.7';
     frag.appendChild(el);
   });

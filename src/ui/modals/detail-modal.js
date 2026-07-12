@@ -3,10 +3,9 @@
 // ============================================================
 import { $, OWNER } from '../../core/config.js';
 import { gs, dom, markDirty } from '../../core/state.js';
+import { emit, EV } from '../../core/events.js';
 import { addLog } from '../panels/log-panel.js';
 import { playCardFromHand } from '../../game/game-actions.js';
-import { flushBoard } from '../renderers/board-renderer.js';
-import { renderHand } from '../renderers/hand-renderer.js';
 import { getATKColor, getHPColor } from '../renderers/card-view.js';
 
 export function openDetail(card, src, idx) {
@@ -37,5 +36,5 @@ export function playCard(idx) {
   const placed = playCardFromHand(true, idx, e);
   if (!placed) return;
   addLog(`👉 <span class="log-player">${OWNER.PLAYER}</span> ลงการ์ด <span class="log-player">${cardName}</span>`);
-  markDirty(); flushBoard(); renderHand();
+  markDirty(); emit(EV.FLUSH_BOARD); emit(EV.RENDER_HAND);
 }

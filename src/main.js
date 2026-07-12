@@ -11,6 +11,7 @@ import {
   renderStatsUI, openDetail, createCardHTML, addLog,
 } from './ui/ui.js';
 import { buildDeck } from './data/deck.js';
+import { rng } from './core/rng.js';
 import { endTurn } from './game/turn-control.js';
 import { resetAutoPlay } from './game/auto-play.js';
 import { createAutoBtn } from './ui/panels/auto-play-btn.js';
@@ -25,6 +26,12 @@ export async function initGame() {
   resetAutoPlay();   // emits EV.AUTO_PLAY_CHANGED — ui/panels/auto-play-btn.js sync ปุ่มเอง
   resetGameState();
 
+  // Rule 2: ผูก RNG กับ run นี้โดยตรง — สุ่ม seed ใหม่ทุกครั้งที่เริ่มเกม
+  // (กัน sequence สุ่มไหลต่อเนื่องข้ามรอบ) แล้วเก็บไว้ใน gs + log ไว้ให้เห็น
+  // เพื่อรีเพลย์ run เดิมซ้ำได้ (พิมพ์ seed นี้ใส่ตอน debug ได้ในอนาคต)
+  gs.rngSeed = (Date.now() ^ (Math.random() * 0xffffffff)) >>> 0;
+  rng.seed(gs.rngSeed);
+
   gs.playerDeck = buildDeck(true);
   gs.enemyDeck  = buildDeck(false);
   updateHeroHP();
@@ -36,6 +43,7 @@ export async function initGame() {
   }
   renderHand(); renderEnemyHand(); markDirty(); flushBoard(); updateDeckCount();
   addLog('⚔️ เริ่มการต่อสู้!');
+  addLog(`🎲 seed: ${gs.rngSeed}`);
 
   if (dom.endTurnBtn) dom.endTurnBtn.disabled = false;
 }
@@ -150,4 +158,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Boot game ────────────────────────────────────────────────
   initGame();
-});
+});

@@ -115,4 +115,13 @@ export const EV = Object.freeze({
   // payload: { isAutoPlay: boolean } — engine ตัดสิน on/off แล้ว emit ให้ UI
   // sync ปุ่มเอง แทนที่ game/auto-play.js จะแตะ document.* ตรง ๆ
   AUTO_PLAY_CHANGED: 'auto-play-changed',
+
+  // ── open card detail modal ─────────────────────────────────────
+  // payload: { card, src, idx } — เดิม board-renderer.js/hand-renderer.js
+  // เรียก import('../modals/detail-modal.js').then(...) แบบ dynamic import
+  // ตรงใน onclick เพื่อเลี่ยง circular dependency (detail-modal.js import
+  // กลับมาที่ทั้งสองไฟล์นั้นเพื่อ flushBoard/renderHand) — ย้ายมาใช้
+  // emit() แบบเดียวกับ UI-sync event อื่นทั้งหมดแทน ตัด circular ได้ตรง
+  // จุด และไม่ต้องมี pattern พิเศษแยกจากที่อื่นในโปรเจกต์
+  OPEN_DETAIL: 'open-detail',
 });
