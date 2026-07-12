@@ -80,30 +80,36 @@ export function setupVFXHandlers() {
     showFloat(msg, el ?? resolveEl(loc), type, delayMS);
   });
 
-  // impact claw: { isPlayer, idx, target }  — slash + flash on target slot/hero
+  // impact claw: { isPlayer, idx, target, delayMS? }  — slash + flash on target slot/hero
+  // Phase F2: delayMS (จาก game/combat.js) = จังหวะดาบสับถึงเป้า — engine
+  // เองไม่ sleep() รอเรื่องนี้แล้ว ที่นี่เป็นคนหน่วงการแสดงผลจริงด้วย sd()
   on(EV.IMPACT, (payload) => {
-    const el = resolveEl(payload);
-    if (!el) return;
-    el.style.position = 'relative';
-    const w = el.offsetWidth  || 100;
-    const h = el.offsetHeight || 140;
-    const flash = document.createElement('div');
-    flash.className = 'slash-impact-flash';
-    el.appendChild(flash); sd(() => flash.remove(), 320);
-    [{ rot: -38, ox: -28, oy: -8 },
-     { rot: -22, ox: -20, oy:  4 },
-     { rot:  -8, ox: -14, oy: 14 }]
-      .forEach((def, si) => {
-        const slash = document.createElement('div');
-        slash.className = 'claw-slash';
-        slash.style.cssText =
-          `left:${w / 2 + def.ox}px;top:${h / 2 + def.oy}px;` +
-          `--slash-rot:${def.rot}deg;animation-delay:${si * 18}ms;`;
-        el.appendChild(slash);
-        setTimeout(() => slash.remove(), 420);
-      });
-    el.classList.add('hit-shake');
-    sd(() => el.classList.remove('hit-shake'), 240);
+    const runImpact = () => {
+      const el = resolveEl(payload);
+      if (!el) return;
+      el.style.position = 'relative';
+      const w = el.offsetWidth  || 100;
+      const h = el.offsetHeight || 140;
+      const flash = document.createElement('div');
+      flash.className = 'slash-impact-flash';
+      el.appendChild(flash); sd(() => flash.remove(), 320);
+      [{ rot: -38, ox: -28, oy: -8 },
+       { rot: -22, ox: -20, oy:  4 },
+       { rot:  -8, ox: -14, oy: 14 }]
+        .forEach((def, si) => {
+          const slash = document.createElement('div');
+          slash.className = 'claw-slash';
+          slash.style.cssText =
+            `left:${w / 2 + def.ox}px;top:${h / 2 + def.oy}px;` +
+            `--slash-rot:${def.rot}deg;animation-delay:${si * 18}ms;`;
+          el.appendChild(slash);
+          setTimeout(() => slash.remove(), 420);
+        });
+      el.classList.add('hit-shake');
+      sd(() => el.classList.remove('hit-shake'), 240);
+    };
+    if (payload?.delayMS > 0) sd(runImpact, payload.delayMS);
+    else runImpact();
   });
 
   // hit-shake only (no claw): { el }
@@ -124,12 +130,18 @@ export function setupVFXHandlers() {
     cardEl.classList.add(payload.animClass);
   });
 
-  // card unswing (recoil done): { isPlayer, idx, animClass }
+  // card unswing (recoil done): { isPlayer, idx, animClass, delayMS? }
+  // Phase F2: delayMS (จาก game/combat.js) = impact+recoil รวมกัน — engine
+  // ไม่ sleep() รอแล้ว ที่นี่เป็นคนหน่วงจริงด้วย sd()
   on(EV.CARD_UNSWING, (payload) => {
-    const slotEl = resolveEl(payload);
-    const cardEl = slotEl?.querySelector('.card');
-    cardEl?.classList.remove(payload.animClass);
-    if (slotEl) slotEl.style.zIndex = '';
+    const runUnswing = () => {
+      const slotEl = resolveEl(payload);
+      const cardEl = slotEl?.querySelector('.card');
+      cardEl?.classList.remove(payload.animClass);
+      if (slotEl) slotEl.style.zIndex = '';
+    };
+    if (payload?.delayMS > 0) sd(runUnswing, payload.delayMS);
+    else runUnswing();
   });
 
   // shatter: { isPlayer, idx } — resolve slotEl เอง, ต้องเรียก shatterCard

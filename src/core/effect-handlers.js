@@ -17,11 +17,11 @@ export function setupEffectHandlers() {
   // payload ตรงกับ argument list เดิมของฟังก์ชัน apply ที่มีอยู่แล้ว —
   // handler แค่ destructure แล้วส่งต่อ ไม่มี logic ใหม่ตรงนี้ (ของเดิม
   // ยังอยู่ที่ combat.js/game-actions.js เหมือนเดิมทุกอย่าง)
-  onEffect(FX.DAMAGE, ({ target, rawDmg, loc, isTargetPlayer, sourceType, attackerCard }) =>
-    applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType, attackerCard));
+  onEffect(FX.DAMAGE, ({ target, rawDmg, loc, isTargetPlayer, sourceType, attackerCard, floatDelayMs }) =>
+    applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType, attackerCard, floatDelayMs));
 
-  onEffect(FX.HERO_DAMAGE, ({ isTargetPlayer, rawDmg, loc, attackerCard }) =>
-    applyHeroDamage(isTargetPlayer, rawDmg, loc, attackerCard));
+  onEffect(FX.HERO_DAMAGE, ({ isTargetPlayer, rawDmg, loc, attackerCard, floatDelayMs }) =>
+    applyHeroDamage(isTargetPlayer, rawDmg, loc, attackerCard, floatDelayMs));
 
   onEffect(FX.HEAL, ({ card, amount, sourceCard, opts }) =>
     applyCardHeal(card, amount, sourceCard, opts));

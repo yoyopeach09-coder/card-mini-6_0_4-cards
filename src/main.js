@@ -12,7 +12,8 @@ import {
 } from './ui/ui.js';
 import { buildDeck } from './data/deck.js';
 import { endTurn } from './game/turn-control.js';
-import { createAutoBtn, updateAutoBtn, resetAutoPlay, setAutoPlay } from './game/auto-play.js';
+import { resetAutoPlay } from './game/auto-play.js';
+import { createAutoBtn } from './ui/panels/auto-play-btn.js';
 import { setupVFXHandlers } from './vfx/vfx-handlers.js';
 import { setupEffectHandlers } from './core/effect-handlers.js';
 
@@ -21,8 +22,7 @@ export async function initGame() {
   cleanupAllEffects();
   resetSlotCache();
   resetHPDisplays();
-  resetAutoPlay();
-  updateAutoBtn();
+  resetAutoPlay();   // emits EV.AUTO_PLAY_CHANGED — ui/panels/auto-play-btn.js sync ปุ่มเอง
   resetGameState();
 
   gs.playerDeck = buildDeck(true);

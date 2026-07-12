@@ -11,12 +11,17 @@
 //    float          {msg, el?, loc?, type, delayMS}        → showFloat
 //                     el = DOM element ตรง ๆ (จาก ui/* เอง)
 //                     loc = location descriptor (จาก game/* — ดูด้านล่าง)
-//    impact         {isPlayer, idx?, target}                → spawnImpactClaw
+//    impact         {isPlayer, idx?, target, delayMS?}       → spawnImpactClaw
 //    hit-shake      {el}                                    → hit-shake class
 //    card-swing/
-//    card-unswing   {isPlayer, idx, animClass}               → attack swing animation
+//    card-unswing   {isPlayer, idx, animClass, delayMS?}     → attack swing animation
 //    shatter        {isPlayer, idx}                          → shatterCard + เคลียร์ innerHTML ช่อง
 //    screen-shake   (none)                                   → (reserved, currently no-op)
+//
+//    Phase F2 — delayMS (float/impact/card-unswing): game/combat.js ไม่ sleep()
+//    รอจังหวะ swing→impact→recoil เองอีกต่อไป (engine resolve จบทันที) — ส่ง
+//    delayMS (ตัวเลขจังหวะภาพเฉย ๆ) มาแทน แล้ว vfx-handlers.js เป็นคนหน่วง
+//    การแสดงผลจริงเองด้วย sd() ดู core/config.js: ATTACK_ANIM_MS
 //
 //    location descriptor { isPlayer, idx, target } (Phase 3.4/3.5):
 //      game/* ไม่รู้จัก dom.* เลย จึงส่งพิกัดแทน element ตรง ๆ
@@ -105,4 +110,9 @@ export const EV = Object.freeze({
   // payload: { winner: 'player'|'enemy'|'draw', reason: string }
   // vfx-handlers.js เป็นคน subscribe แล้วทำ alert + log + เปิด stats panel
   GAME_OVER:    'game-over',
+
+  // ── Phase F1: auto-play button sync (game/auto-play.js → ui/panels/auto-play-btn.js) ──
+  // payload: { isAutoPlay: boolean } — engine ตัดสิน on/off แล้ว emit ให้ UI
+  // sync ปุ่มเอง แทนที่ game/auto-play.js จะแตะ document.* ตรง ๆ
+  AUTO_PLAY_CHANGED: 'auto-play-changed',
 });

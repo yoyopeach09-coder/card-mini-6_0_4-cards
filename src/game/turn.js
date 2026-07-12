@@ -8,7 +8,7 @@
 //
 //  Engine พื้นฐาน: ไม่มีสกิลใดๆ — tick สถานะ/passive ทั้งหมดถูกตัดออก
 // ============================================================
-import { BOARD_SIZE } from '../core/config.js';
+import { BOARD_SIZE, ATTACK_ANIM_MS } from '../core/config.js';
 import { gs, getMyBoard, markDirty } from '../core/state.js';
 import { emit, EV } from '../core/events.js';
 import { executeAttack } from './combat.js';
@@ -73,7 +73,12 @@ export async function processTurnPhase(isPlayer) {
     if (!pCard || pCard.hp <= 0) continue;
 
     await executeAttack(pCard, getMyBoard(!isPlayer)[i], i, isPlayer);
-    await checkDeaths(); markDirty(); emit(EV.FLUSH_BOARD); await sleep(300);
+    await checkDeaths(); markDirty(); emit(EV.FLUSH_BOARD);
+    // Phase F2: executeAttack() เอง resolve ทันทีแล้ว ไม่รอ swing/impact/
+    // recoil อีกต่อไป (ย้ายไปเป็น delayMS ฝั่ง vfx-handlers.js) — พักตรงนี้
+    // แทนเพื่อให้จังหวะโดยรวมของเทิร์นเท่าเดิม (300 เดิม + swing สามช่วง
+    // ที่เคยฝังอยู่ใน combat.js: impact+recoil+settle)
+    await sleep(300 + ATTACK_ANIM_MS.IMPACT + ATTACK_ANIM_MS.RECOIL + ATTACK_ANIM_MS.SETTLE);
   }
 
   if (!gs.isGameOver) await shiftBoards();

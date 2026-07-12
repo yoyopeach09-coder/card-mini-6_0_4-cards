@@ -10,14 +10,11 @@
 //  Engine พื้นฐาน: ไม่มีสกิลใดๆ — ตีเรียงตาตามลำดับ, ลบ HP ตรงๆ,
 //  ไม่มี crit/dodge/armor/status ใดๆ
 // ============================================================
-import { sleep } from '../core/config.js';
+import { ATTACK_ANIM_MS } from '../core/config.js';
 import { gs, getMyBoard, markDirty, addCombatStat } from '../core/state.js';
 import { emit, EV } from '../core/events.js';
 import { checkGameOver } from './win-check.js';
 import { queueEffect, resolveEffectQueue, FX, PRIORITY } from '../core/queue.js';
-
-const LOA_IMPACT_MS = 175;
-const LOA_RECOIL_MS = 175;
 
 // ── applyDamage ───────────────────────────────────────────────
 // Rule pipeline กลางสำหรับ card damage: clamp + ลบ HP ตรงๆ
@@ -30,7 +27,12 @@ const LOA_RECOIL_MS = 175;
 // เพื่อให้ effect หลายตัว (รวมสกิลในอนาคต) resolve เรียงตาม priority/id
 // ผ่าน resolveEffectQueue() จุดเดียว ไม่ใช่ตามลำดับที่โค้ดเรียกสุ่ม ๆ
 // ยัง export ตรงนี้ไว้เผื่อ caller อื่นอยากเรียกใช้ตรง ๆ ได้ (เช่น debug)
-export function applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType = 'normal', attackerCard = null) {
+// หมายเหตุ (Phase F2): เพิ่ม floatDelayMs (ตัวเลขจังหวะภาพ ms เฉย ๆ, default 0
+// = แสดงทันทีเหมือนเดิมสำหรับ caller อื่นที่ไม่ส่งมา) — ส่งต่อเข้า EV.FLOAT
+// ตรง ๆ ผ่าน delayMS ที่ handler รองรับอยู่แล้ว (ดู vfx-handlers.js) เพื่อให้
+// เลขดาเมจโผล่ตรงจังหวะดาบสับถึงเป้าได้ โดยที่ฟังก์ชันนี้เอง "ไม่ sleep() รอ"
+// ผลตัดสิน (target.hp -= effective) ยังคง apply ทันทีเหมือนเดิมทุกอย่าง
+export function applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType = 'normal', attackerCard = null, floatDelayMs = 0) {
   if (!target || isNaN(rawDmg)) return 0;
   const dmg = Math.max(0, Math.floor(rawDmg));
 
@@ -46,20 +48,20 @@ export function applyDamage(target, rawDmg, loc, isTargetPlayer, sourceType = 'n
   }
 
   if (effective > 0) {
-    emit(EV.FLOAT, { msg: `-${effective}`, loc, type: 'dmg' });
+    emit(EV.FLOAT, { msg: `-${effective}`, loc, type: 'dmg', delayMS: floatDelayMs });
   }
 
   markDirty();
   return effective;
 }
 
-export function applyHeroDamage(isTargetPlayer, rawDmg, loc, attackerCard = null) {
+export function applyHeroDamage(isTargetPlayer, rawDmg, loc, attackerCard = null, floatDelayMs = 0) {
   const dmg = Math.max(0, Math.floor(rawDmg || 0));
   if (!dmg) return 0;
   if (isTargetPlayer) gs.playerHP = Math.max(0, gs.playerHP - dmg);
   else gs.enemyHP = Math.max(0, gs.enemyHP - dmg);
   addCombatStat(attackerCard, 'dmg', dmg);
-  emit(EV.FLOAT, { msg: `-${dmg}`, loc, type: 'dmg' });
+  emit(EV.FLOAT, { msg: `-${dmg}`, loc, type: 'dmg', delayMS: floatDelayMs });
   checkGameOver();
   return dmg;
 }
@@ -69,45 +71,51 @@ export function applyHeroDamage(isTargetPlayer, rawDmg, loc, attackerCard = null
 // { isPlayer, idx } ผ่าน event แล้วให้ vfx-handlers.js เป็นคน resolve
 // dom element เอง (isPlayer=true → ฝั่งผู้เล่น, ตาม convention เดียวกับ
 // SHATTER ใน turn.js)
+//
+// หมายเหตุ (Phase F2 — เอา sleep() ออกจาก engine): เดิมฟังก์ชันนี้ await
+// sleep(LOA_IMPACT_MS)/sleep(LOA_RECOIL_MS)/sleep(60) คั่นกลาง ทำให้ engine
+// เอง "รอ animation" ตรง ๆ (ขัดกฎข้อ 5: engine คำนวณจบก่อนเสมอ, animation
+// ตามหลัง) ตอนนี้ตัดสินผลดาเมจ "จบทันที" ไม่รอใคร ส่วนจังหวะภาพ (สับ →
+// กระทบ → ค้างท่า → ชักกลับ) ส่งไปแค่เป็น delayMS hint ผ่าน event ให้
+// vfx-handlers.js เป็นคนหน่วงแสดงผลเองทั้งหมดด้วย sd() — ถ้า animation
+// พัง/ถูกปิด ผลเกม (HP/kills/log) ยังถูกต้องและเกิดขึ้นจริงอยู่ดี
 export async function executeAttack(attacker, defender, idx, isPlayer) {
   if (!attacker || gs.isGameOver) return;
+  if (attacker.hp <= 0 || gs.isGameOver) return;
 
   const anim  = isPlayer ? 'anim-loa-attack-up' : 'anim-loa-attack-down';
   const aName = `<span class="${isPlayer ? 'log-player' : 'log-enemy'}">${attacker.name}</span>`;
 
-  if (attacker.hp <= 0 || gs.isGameOver) return;
-
-  emit(EV.CARD_SWING, { isPlayer, idx, animClass: anim });
-  await sleep(LOA_IMPACT_MS);
-
   if (defender?.hp <= 0) defender = null;
+
+  // เริ่ม swing ทันที (delayMS ไม่ใส่ = แสดงทันที) — engine ไม่ block รอ
+  // จังหวะนี้อีกต่อไป
+  emit(EV.CARD_SWING, { isPlayer, idx, animClass: anim });
 
   if (defender) {
     const dmg   = attacker.atk;
     const dName = `<span class="${!isPlayer ? 'log-player' : 'log-enemy'}">${defender.name}</span>`;
     const loc   = { isPlayer: !isPlayer, idx, target: 'slot' };
 
-    emit(EV.IMPACT, loc);
+    emit(EV.IMPACT, { ...loc, delayMS: ATTACK_ANIM_MS.IMPACT });
     emit(EV.LOG, `⚔️ ${aName} → ${dName} (<span class="log-dmg">${dmg}</span>)`);
     // Phase E1: push เข้า effect queue แทนเรียก applyDamage() ตรง ๆ —
     // ถ้าอนาคตมีสกิลอื่น queueEffect() เพิ่มเข้ามาพร้อมกัน (เช่น thorns
     // สวนกลับ, on-hit trigger) ทุกอย่างจะ resolve เรียงตาม priority/id
     // เดียวกันตรงนี้ ไม่ใช่ต่างคนต่างเรียกฟังก์ชันซ้อนกันเอง
-    queueEffect(FX.DAMAGE, { target: defender, rawDmg: dmg, loc, isTargetPlayer: !isPlayer, sourceType: 'normal', attackerCard: attacker }, PRIORITY.NORMAL);
+    queueEffect(FX.DAMAGE, { target: defender, rawDmg: dmg, loc, isTargetPlayer: !isPlayer, sourceType: 'normal', attackerCard: attacker, floatDelayMs: ATTACK_ANIM_MS.IMPACT }, PRIORITY.NORMAL);
     await resolveEffectQueue();
 
   } else {
     // No defender — hit hero directly
     const loc = { isPlayer: !isPlayer, target: 'hero' };
-    emit(EV.IMPACT, loc);
+    emit(EV.IMPACT, { ...loc, delayMS: ATTACK_ANIM_MS.IMPACT });
     const dmg = attacker.atk;
-    queueEffect(FX.HERO_DAMAGE, { isTargetPlayer: !isPlayer, rawDmg: dmg, loc, attackerCard: attacker }, PRIORITY.NORMAL);
+    queueEffect(FX.HERO_DAMAGE, { isTargetPlayer: !isPlayer, rawDmg: dmg, loc, attackerCard: attacker, floatDelayMs: ATTACK_ANIM_MS.IMPACT }, PRIORITY.NORMAL);
     await resolveEffectQueue();
     emit(EV.LOG, `⚔️ ${aName} → ฮีโร่ (<span class="log-dmg">${dmg}</span>)`);
   }
 
   emit(EV.UPDATE_HERO_HP);
-  await sleep(LOA_RECOIL_MS);
-  emit(EV.CARD_UNSWING, { isPlayer, idx, animClass: anim });
-  await sleep(60);
+  emit(EV.CARD_UNSWING, { isPlayer, idx, animClass: anim, delayMS: ATTACK_ANIM_MS.IMPACT + ATTACK_ANIM_MS.RECOIL });
 }

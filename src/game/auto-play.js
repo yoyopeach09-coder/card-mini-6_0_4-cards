@@ -4,6 +4,12 @@
 //  ห้าม import จาก ui/* และห้ามแตะ dom.* เลย (Phase 3.2/3.3) —
 //  ใช้ gs.turnLocked แทน dom.endTurnBtn.disabled, log ผ่าน emit(EV.LOG, ...)
 //  endTurn นำเข้าแบบ static จาก turn-control.js แล้ว (Phase 4.1 — ยืนยันไม่มี circular dep)
+//
+//  Phase F1 (cleanup): createAutoBtn()/_updateAutoBtn() ที่เคยอยู่ท้ายไฟล์นี้
+//  แตะ document.getElementById/innerHTML/classList ตรง ๆ — ขัดกับคอมเมนต์
+//  "ห้าม...แตะ dom.* เลย" ด้านบนเอง (กฎข้อ 1) ย้ายออกไปที่
+//  ui/panels/auto-play-btn.js ทั้งหมดแล้ว ไฟล์นี้เหลือแค่ตัดสิน on/off แล้ว
+//  emit(EV.AUTO_PLAY_CHANGED, { isAutoPlay }) ให้ฝั่ง UI ไป sync ปุ่มเอง
 // ============================================================
 import { sleep } from '../core/config.js';
 import { gs, markDirty } from '../core/state.js';
@@ -18,6 +24,7 @@ export const getAutoPlay  = ()  => _ap.isAutoPlay;
 export function resetAutoPlay() {
   _ap.isAutoPlay   = false;
   _ap.autoLoopLock = false;
+  emit(EV.AUTO_PLAY_CHANGED, { isAutoPlay: false });
 }
 
 const AUTO_THINK_MS = 600;
@@ -70,30 +77,6 @@ async function autoPlayLoop() {
 // ── setAutoPlay ───────────────────────────────────────────────
 export function setAutoPlay(on) {
   _ap.isAutoPlay = on;
-  _updateAutoBtn();
+  emit(EV.AUTO_PLAY_CHANGED, { isAutoPlay: on });
   if (on && !_ap.autoLoopLock) autoPlayLoop();
 }
-
-// ── UI ────────────────────────────────────────────────────────
-let autoBtn = null;
-
-export function createAutoBtn() {
-  autoBtn = document.getElementById('auto-play-btn');
-  if (autoBtn) {
-    autoBtn.onclick = () => setAutoPlay(!_ap.isAutoPlay);
-  }
-}
-
-function _updateAutoBtn() {
-  if (!autoBtn) return;
-  if (_ap.isAutoPlay) {
-    autoBtn.innerHTML = '🤖 Auto <span style="color:#4cff4c;font-weight:900">ON</span>';
-    autoBtn.classList.add('active');
-  } else {
-    autoBtn.innerHTML = '🤖 Auto <span style="color:#aaa">OFF</span>';
-    autoBtn.classList.remove('active');
-  }
-}
-
-// exported alias so main.js can call it after reset
-export const updateAutoBtn = _updateAutoBtn;
